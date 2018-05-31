@@ -15,5 +15,13 @@
     </FlowProbe>
     <FlowProbe index="3">
     </FlowProbe>
+    <FlowProbe index="4">
+    </FlowProbe>
+    <FlowProbe index="5">
+    </FlowProbe>
+    <FlowProbe index="6">
+    </FlowProbe>
+    <FlowProbe index="7">
+    </FlowProbe>
   </FlowProbes>
 </FlowMonitor>
