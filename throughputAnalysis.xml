@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<FlowMonitor>
+  <FlowStats>
+  </FlowStats>
+  <Ipv4FlowClassifier>
+  </Ipv4FlowClassifier>
+  <Ipv6FlowClassifier>
+  </Ipv6FlowClassifier>
+  <FlowProbes>
+    <FlowProbe index="0">
+    </FlowProbe>
+    <FlowProbe index="1">
+    </FlowProbe>
+    <FlowProbe index="2">
+    </FlowProbe>
+    <FlowProbe index="3">
+    </FlowProbe>
+  </FlowProbes>
+</FlowMonitor>

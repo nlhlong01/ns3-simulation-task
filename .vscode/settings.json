@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "deque": "cpp",
+        "vector": "cpp",
+        "list": "cpp"
+    },
+    "git.ignoreLimitWarning": true
+}
