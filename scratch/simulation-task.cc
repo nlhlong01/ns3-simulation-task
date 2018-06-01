@@ -1,11 +1,8 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/wifi-module.h"
-#include "ns3/mesh-helper.h"
-#include "ns3/config.h"
 #include "ns3/mobility-helper.h"
 #include "ns3/v4ping-helper.h"
 #include "ns3/flow-monitor-module.h"
@@ -19,12 +16,14 @@ NS_LOG_COMPONENT_DEFINE ("SimulationTask");
 int main (int argc, char *argv[]) {
     int nodeNum = 4;
     std::string mode = "normal";
-    std::string app = "tcp";
+    std::string protocol = "udp";
+    int distance = 5;
 
     CommandLine cmd;
     cmd.AddValue ("mode", "Simulation mode (debug, normal)", mode);
     cmd.AddValue ("app", "Application (udp, tcp)", mode);
     cmd.AddValue ("nodeNum", "Number of nodes", nodeNum);
+    cmd.AddValue ("distance", "Distance between 2 nodes", distance);
     cmd.Parse (argc, argv);
 
     // Set up a 4-node wireless adhoc 802.11g network.
@@ -69,7 +68,7 @@ int main (int argc, char *argv[]) {
     stack.SetRoutingHelper (list);
     stack.Install(nodes);
     Ipv4AddressHelper addresses ;
-    addresses.SetBase("192.168.0.0", "255.255.255.0");
+    addresses.SetBase("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = addresses.Assign(devices);
     // Ipv4Address clientAddr = interfaces.GetAddress(0); 
     Ipv4Address serverAddr = interfaces.GetAddress(nodeNum-1);    
@@ -79,7 +78,7 @@ int main (int argc, char *argv[]) {
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
                                   "MinX", DoubleValue (0.0),
                                   "MinY", DoubleValue (0.0),
-                                  "DeltaX", DoubleValue (5.0),
+                                  "DeltaX", DoubleValue (distance),
                                   "GridWidth", UintegerValue (nodeNum),
                                   "LayoutType", StringValue ("RowFirst"));
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -96,55 +95,49 @@ int main (int argc, char *argv[]) {
         V4PingHelper ping(destAddr);
         clientApps = ping.Install(clientNode);
         clientApps.Start (Seconds (1.0));
-        clientApps.Stop (Seconds (5.0));
+        clientApps.Stop (Seconds (10.0));
     }
-
     else {
         NS_LOG_INFO ("Normal mode");
-        if (app == "udp") {
-            // Install UDP apps
+        uint16_t port;
+        ApplicationContainer sourceApps;
+        ApplicationContainer sinkApps;
+        std::string selectedProtocol;
+        if (protocol == "udp") {
+            selectedProtocol = "ns3::UdpSocketFactory";
+            port = 4000;
             NS_LOG_INFO ("Installing UDP app");
-            uint16_t port = 4000;
-            UdpServerHelper udpServer(port);
-            serverApps = udpServer.Install(serverNode);
-            serverApps.Start (Seconds (1.0));
-            serverApps.Stop (Seconds (5.0));
-            // uint32_t MaxPacketSize = 1472;  
-            UdpTraceClientHelper udpClient(serverAddr, port, "");
-            // udpClient.SetAttribute ("MaxPacketSize", UintegerValue (MaxPacketSize));
-            clientApps = udpClient.Install (clientNode);
-            clientApps.Start (Seconds (1.0));
-            clientApps.Stop (Seconds (5.0));
         }
         else {
-            // Install TCP apps
+            selectedProtocol = "ns3::TcpSocketFactory";
+            port = 9; 
             NS_LOG_INFO ("Installing TCP app");
-            uint16_t port = 9;  
-            BulkSendHelper source ("ns3::TcpSocketFactory", 
-                                    InetSocketAddress (interfaces.GetAddress(1), port));
-            source.SetAttribute ("MaxBytes", UintegerValue (0));
-            clientApps = source.Install (clientNode);
-            clientApps.Start (Seconds (1.0));
-            clientApps.Stop (Seconds (5.0));
-            PacketSinkHelper sink ("ns3::TcpSocketFactory",
-                                    InetSocketAddress (Ipv4Address::GetAny (), port));
-            serverApps = sink.Install (serverNode);
-            serverApps.Start (Seconds (1.0));
-            serverApps.Stop (Seconds (5.0));
         }
+        // Install the apps
+        InetSocketAddress destAddr = InetSocketAddress (serverAddr, port);
+        InetSocketAddress sinkAddr = InetSocketAddress (Ipv4Address::GetAny(), port);
+        OnOffHelper onOff (selectedProtocol, destAddr);
+        sourceApps = onOff.Install (clientNode);
+        sourceApps.Start (Seconds (1.0));
+        sourceApps.Stop (Seconds (10.0));
+        PacketSinkHelper sink (selectedProtocol, sinkAddr);
+        sourceApps = sink.Install (serverNode);
+        sourceApps.Start (Seconds (1.0));
+        sourceApps.Stop (Seconds (10.0));
     }
 
-    // // Set up Flow Monitor module 
-    // Ptr<FlowMonitor> flowMonitor;
-    // FlowMonitorHelper flowHelper;
-    // flowMonitor = flowHelper.Install(nodes);
-    // flowMonitor->SerializeToXmlFile("throughputAnalysis.csv", true, true);
-
+    // enable PCAP on the channel
     phy.EnablePcapAll("debug");
+
+    // Set up Flow Monitor module 
+    Ptr<FlowMonitor> flowMonitor;
+    FlowMonitorHelper flowHelper;
+    flowMonitor = flowHelper.InstallAll();
 
     NS_LOG_INFO ("Run Simulation.");
     Simulator::Stop(Seconds(10.0));
     Simulator::Run ();
+    flowMonitor->SerializeToXmlFile("throughputAnalysis.csv", true, true);
     Simulator::Destroy ();
     NS_LOG_INFO ("Done.");
 }
